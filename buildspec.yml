@@ -1,0 +1,35 @@
+version: 0.2
+
+env:
+  variables:
+    IMAGE_REPO_NAME: spring-app-rosario
+    IMAGE_TAG: latest
+    AWS_REGION: us-east-2
+    CLUSTER_NAME: spring-cluster
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+    commands:
+      - echo Installing kubectl
+      - curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.27.0/2023-09-14/bin/linux/amd64/kubectl
+      - chmod +x kubectl
+      - mv kubectl /usr/local/bin/
+
+  pre_build:
+    commands:
+      - echo Logging in to ECR
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 066289170224.dkr.ecr.us-east-2.amazonaws.com
+
+  build:
+    commands:
+      - mvn clean package
+      - docker build -t $IMAGE_REPO_NAME .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG 066289170224.dkr.ecr.us-east-2.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - docker push 066289170224.dkr.ecr.us-east-2.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+      - kubectl rollout restart deployment spring-app
