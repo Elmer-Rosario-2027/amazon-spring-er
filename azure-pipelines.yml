@@ -1,0 +1,86 @@
+trigger:
+  branches:
+    include:
+      - dev
+
+resources:
+- repo: self
+
+variables:
+  dockerRegistryServiceConnection: 'd4d8366f-d778-4337-a8dc-fca67955e5bb'
+  imageRepository: 'elmerrosarioamazonspringer'
+  containerRegistry: 'rosarioazureecr.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+  imagePullSecret: 'rosarioazureecr1906-auth'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+
+# ─── STAGE 1: BUILD MAVEN + DOCKER ───────────────────────────
+- stage: Build
+  displayName: Build stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+
+    - task: Maven@4
+      displayName: Compilar JAR con Maven
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package'
+        options: '-DskipTests'
+        publishJUnitResults: false
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '21'
+
+    - task: Docker@2
+      displayName: Build y Push imagen a ACR
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+    - upload: manifests
+      artifact: manifests
+
+# ─── STAGE 2: DEPLOY A AKS ───────────────────────────────────
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy
+    pool:
+      vmImage: $(vmImageName)
+    environment: 'ElmerRosario2027amazonspringer.rosario-azure-dev'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: KubernetesManifest@0
+            displayName: Crear imagePullSecret
+            inputs:
+              action: createSecret
+              secretName: $(imagePullSecret)
+              dockerRegistryEndpoint: $(dockerRegistryServiceConnection)
+
+          - task: KubernetesManifest@0
+            displayName: Deploy a AKS
+            inputs:
+              action: deploy
+              manifests: |
+                $(Pipeline.Workspace)/manifests/deployment.yml
+                $(Pipeline.Workspace)/manifests/service.yml
+              imagePullSecrets: |
+                $(imagePullSecret)
+              containers: |
+                $(containerRegistry)/$(imageRepository):$(tag)
