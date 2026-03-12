@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: elmerrosarioamazonspringer 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elmerrosarioamazonspringer
+  template:
+    metadata:
+      labels:
+        app: elmerrosarioamazonspringer 
+    spec:
+      containers:
+        - name: elmerrosarioamazonspringer 
+          image: rosarioazureecr.azurecr.io/elmerrosarioamazonspringer
+          ports:
+          - containerPort: 8080
