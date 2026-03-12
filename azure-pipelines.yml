@@ -13,7 +13,6 @@ variables:
   dockerfilePath: '**/Dockerfile'
   tag: '$(Build.BuildId)'
   imagePullSecret: 'rosarioazureecr1906-auth'
-  vmImageName: 'ubuntu-latest'
 
 stages:
 
@@ -24,7 +23,7 @@ stages:
       - job: Build
         displayName: Build
         pool:
-          vmImage: $(vmImageName)
+          name: Default
         steps:
 
           - task: Maven@4
@@ -59,7 +58,7 @@ stages:
       - deployment: Deploy
         displayName: Deploy
         pool:
-          vmImage: $(vmImageName)
+          name: Default
         environment: 'ElmerRosario2027amazonspringer.rosario-azure-dev'
         strategy:
           runOnce:
